@@ -1,34 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import path from 'path';
+import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, mkdir } from 'fs/promises'
+import path from 'path'
 
 export async function POST(request: NextRequest) {
-  const data = await request.formData();
-  const file: File | null = data.get('file') as unknown as File;
+  const data = await request.formData()
+  const file: File | null = data.get('file') as unknown as File
+  const userId = data.get('userId')
+  const currentPath = data.get('currentPath')
 
   if (!file) {
-    return NextResponse.json({ success: false, message: 'No file uploaded' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'No file uploaded' }, { status: 400 })
   }
 
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
+  const bytes = await file.arrayBuffer()
+  const buffer = Buffer.from(bytes)
 
-  // Asegúrate de que este directorio exista en tu proyecto
-  const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+  // Asegúrate de que esta ruta existe y tiene permisos de escritura
+  const uploadDir = path.join(process.cwd(), 'public', 'uploads', userId as string)
   
-  const fileName = `${Date.now()}-${file.name}`;
-  const filePath = path.join(uploadDir, fileName);
-
   try {
-    await writeFile(filePath, buffer);
-    console.log(`File saved to ${filePath}`);
+    await mkdir(uploadDir, { recursive: true })
+    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+    const filePath = path.join(uploadDir, fileName)
+    await writeFile(filePath, buffer)
+    console.log('File written successfully:', filePath)
     return NextResponse.json({ 
       success: true, 
       message: 'File uploaded successfully',
-      filePath: `/uploads/${fileName}` 
-    });
+      filePath: `/uploads/${userId}/${fileName}` 
+    })
   } catch (error) {
-    console.error('Error saving file:', error);
-    return NextResponse.json({ success: false, message: 'Error saving file' }, { status: 500 });
+    console.error('Error saving file:', error)
+    return NextResponse.json({ success: false, message: 'Error saving file' }, { status: 500 })
   }
+}
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
 }
