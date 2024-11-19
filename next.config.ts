@@ -1,7 +1,15 @@
-import type { NextConfig } from "next";
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  api: {
+    bodyParser: false,
+  },
+  images: {
+    domains: ['localhost'], // Añade aquí el dominio de tu servidor de desarrollo
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['better-sqlite3'],
+  },
+}
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
-
-export default nextConfig;
+module.exports = nextConfig

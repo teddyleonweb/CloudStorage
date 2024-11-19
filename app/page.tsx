@@ -5,6 +5,7 @@ import FileUpload from '@/components/FileUpload'
 import { FilePreview } from '@/components/FilePreview'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Trash } from 'lucide-react'
 
 interface File {
   id: number
@@ -19,26 +20,59 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<'name' | 'date'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [filterType, setFilterType] = useState('all')
+  const [selectedFiles, setSelectedFiles] = useState<number[]>([])
 
   useEffect(() => {
-    // Cargar archivos del localStorage al iniciar
     const savedFiles = localStorage.getItem('uploadedFiles')
     if (savedFiles) {
       setFiles(JSON.parse(savedFiles))
     }
   }, [])
 
-  const handleFileUploaded = (file: { filename: string, path: string }) => {
-    const newFile: File = {
-      id: Date.now(),
-      filename: file.filename,
-      path: file.path,
-      createdAt: new Date().toISOString(),
-    }
-    const updatedFiles = [...files, newFile]
-    setFiles(updatedFiles)
-    // Guardar archivos en localStorage
+  const saveFilesToLocalStorage = (updatedFiles: File[]) => {
     localStorage.setItem('uploadedFiles', JSON.stringify(updatedFiles))
+  }
+
+  const handleFilesUploaded = (newFiles: { filename: string, path: string }[]) => {
+    const updatedFiles = [
+      ...files,
+      ...newFiles.map(file => ({
+        id: Date.now() + Math.random(),
+        filename: file.filename,
+        path: file.path,
+        createdAt: new Date().toISOString()
+      }))
+    ]
+    setFiles(updatedFiles)
+    saveFilesToLocalStorage(updatedFiles)
+  }
+
+  const handleDeleteFile = (id: number) => {
+    const updatedFiles = files.filter(file => file.id !== id)
+    setFiles(updatedFiles)
+    saveFilesToLocalStorage(updatedFiles)
+    setSelectedFiles(selectedFiles.filter(fileId => fileId !== id))
+  }
+
+  const handleRenameFile = (id: number, newName: string) => {
+    const updatedFiles = files.map(file => 
+      file.id === id ? { ...file, filename: newName } : file
+    )
+    setFiles(updatedFiles)
+    saveFilesToLocalStorage(updatedFiles)
+  }
+
+  const handleSelectFile = (id: number) => {
+    setSelectedFiles(prev => 
+      prev.includes(id) ? prev.filter(fileId => fileId !== id) : [...prev, id]
+    )
+  }
+
+  const handleDeleteSelected = () => {
+    const updatedFiles = files.filter(file => !selectedFiles.includes(file.id))
+    setFiles(updatedFiles)
+    saveFilesToLocalStorage(updatedFiles)
+    setSelectedFiles([])
   }
 
   const sortedAndFilteredFiles = files
@@ -71,10 +105,10 @@ export default function Home() {
       <FileUpload
         currentPath={currentPath}
         userId={1}
-        onFileUploaded={handleFileUploaded}
+        onFilesUploaded={handleFilesUploaded}
       />
 
-      <div className="my-4 flex flex-wrap gap-2">
+      <div className="my-4 flex flex-wrap gap-2 items-center">
         <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'name' | 'date')}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Ordenar por" />
@@ -101,11 +135,24 @@ export default function Home() {
             <SelectItem value="documents">Documentos</SelectItem>
           </SelectContent>
         </Select>
+        {selectedFiles.length > 0 && (
+          <Button variant="destructive" onClick={handleDeleteSelected}>
+            <Trash className="mr-2 h-4 w-4" />
+            Eliminar seleccionados ({selectedFiles.length})
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {sortedAndFilteredFiles.map((file) => (
-          <FilePreview key={file.id} file={file} />
+          <FilePreview
+            key={file.id}
+            file={file}
+            onDelete={handleDeleteFile}
+            onRename={handleRenameFile}
+            isSelected={selectedFiles.includes(file.id)}
+            onSelect={handleSelectFile}
+          />
         ))}
       </div>
     </div>
