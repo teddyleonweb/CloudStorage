@@ -6,11 +6,10 @@ import { Progress } from "@/components/ui/progress"
 
 interface FileUploadProps {
   currentPath: string
-  userId: number
-  onFilesUploaded: (files: { filename: string, path: string }[]) => void
+  onFilesUploaded: () => void
 }
 
-export default function FileUpload({ currentPath, userId, onFilesUploaded }: FileUploadProps) {
+export default function FileUpload({ currentPath, onFilesUploaded }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -48,54 +47,40 @@ export default function FileUpload({ currentPath, userId, onFilesUploaded }: Fil
     uploadFiles(files)
   }
 
-  const uploadFile = async (file: File): Promise<{ filename: string, path: string } | null> => {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('userId', userId.toString())
-    formData.append('currentPath', currentPath)
-
-    try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error(`Upload failed with status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      if (data.success) {
-        console.log(`File uploaded successfully: ${data.filePath}`)
-        return { filename: file.name, path: data.filePath }
-      } else {
-        throw new Error(data.message || 'Upload failed')
-      }
-    } catch (error) {
-      console.error(`Error uploading file ${file.name}:`, error)
-      return null
-    }
-  }
-
   const uploadFiles = async (files: File[]) => {
     setIsUploading(true)
     setUploadProgress(0)
     setCurrentFileIndex(0)
     setTotalFiles(files.length)
 
-    const uploadedFiles = []
     for (let i = 0; i < files.length; i++) {
       setCurrentFileIndex(i + 1)
-      const result = await uploadFile(files[i])
-      if (result) {
-        uploadedFiles.push(result)
+      const file = files[i]
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('currentPath', currentPath)
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error(`Upload failed with status: ${response.status}`)
+        }
+
+        setUploadProgress(((i + 1) / files.length) * 100)
+      } catch (error) {
+        console.error(`Error uploading file ${file.name}:`, error)
       }
-      setUploadProgress(((i + 1) / files.length) * 100)
     }
 
     setIsUploading(false)
-    onFilesUploaded(uploadedFiles)
-    alert(`Subida completada. ${uploadedFiles.length} de ${files.length} archivos subidos exitosamente.`)
+    onFilesUploaded()
   }
 
   return (
